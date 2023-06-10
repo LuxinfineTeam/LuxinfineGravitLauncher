@@ -16,12 +16,10 @@ import pro.gravit.launcher.request.auth.AuthRequest;
 import pro.gravit.launcher.request.auth.GetAvailabilityAuthRequest;
 import pro.gravit.launcher.request.update.ProfilesRequest;
 import pro.gravit.launcher.request.websockets.StdWebSocketService;
-import pro.gravit.launcher.server.authlib.InstallAuthlib;
 import pro.gravit.launcher.server.launch.ClasspathLaunch;
 import pro.gravit.launcher.server.launch.Launch;
 import pro.gravit.launcher.server.launch.ModuleLaunch;
 import pro.gravit.launcher.server.launch.SimpleLaunch;
-import pro.gravit.launcher.server.setup.ServerWrapperSetup;
 import pro.gravit.utils.PublicURLClassLoader;
 import pro.gravit.utils.helper.IOHelper;
 import pro.gravit.utils.helper.LogHelper;
@@ -30,7 +28,10 @@ import pro.gravit.utils.helper.SecurityHelper;
 import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ServerWrapper extends JsonConfigurable<ServerWrapper.Config> {
     public static final Path configFile = Paths.get(System.getProperty("serverwrapper.configFile", "ServerWrapperConfig.json"));
@@ -98,20 +99,6 @@ public class ServerWrapper extends JsonConfigurable<ServerWrapper.Config> {
         GetAvailabilityAuthRequest.registerProviders();
         OptionalAction.registerProviders();
         OptionalTrigger.registerProviders();
-        if (args.length > 0 && args[0].equalsIgnoreCase("setup") && !disableSetup) {
-            LogHelper.debug("Read ServerWrapperConfig.json");
-            loadConfig();
-            ServerWrapperSetup setup = new ServerWrapperSetup();
-            setup.run();
-            System.exit(0);
-        }
-        if (args.length > 1 && args[0].equalsIgnoreCase("installAuthlib") && !disableSetup) {
-            LogHelper.debug("Read ServerWrapperConfig.json");
-            loadConfig();
-            InstallAuthlib command = new InstallAuthlib();
-            command. run(args[1]);
-            System.exit(0);
-        }
         LogHelper.debug("Read ServerWrapperConfig.json");
         loadConfig();
         updateLauncherConfig();
