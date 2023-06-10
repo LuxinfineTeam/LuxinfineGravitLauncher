@@ -39,6 +39,8 @@ jar {
         from sourceSets.java11.output
     }
     archiveClassifier.set('clean')
+    //todo not work
+    exclude('com/google/gson/**')
     manifest.attributes("Main-Class": mainClassName,
             "Premain-Class": mainAgentName,
             "Can-Redefine-Classes": "true",
@@ -59,13 +61,13 @@ task javadocJar(type: Jar) {
 
 dependencies {
     pack project(':LauncherAPI')
-    pack group: 'io.netty', name: 'netty-codec-http', version: rootProject['verNetty']
+    //pack group: 'io.netty', name: 'netty-codec-http', version: rootProject['verNetty']
 }
 
 shadowJar {
     duplicatesStrategy = 'EXCLUDE'
     archiveClassifier = null
-    relocate 'io.netty', 'pro.gravit.repackage.io.netty'
+    //relocate 'io.netty', 'pro.gravit.repackage.io.netty'
     configurations = [project.configurations.pack]
     exclude 'module-info.class'
 }
