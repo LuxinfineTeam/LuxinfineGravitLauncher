@@ -24,6 +24,7 @@ import java.io.File;
 import java.util.*;
 
 public final class LaunchServerConfig {
+    private final static List<String> oldMirrorList = List.of("https://mirror.gravit.pro/5.2.x/", "https://mirror.gravit.pro/5.3.x/", "https://mirror.gravitlauncher.com/5.2.x/", "https://mirror.gravitlauncher.com/5.3.x/");
     private transient final Logger logger = LogManager.getLogger();
     public String projectName;
     public String[] mirrors;
@@ -45,7 +46,7 @@ public final class LaunchServerConfig {
 
     public static LaunchServerConfig getDefault(LaunchServer.LaunchServerEnv env) {
         LaunchServerConfig newConfig = new LaunchServerConfig();
-        newConfig.mirrors = new String[]{"https://mirror.gravitlauncher.com/5.3.x/", "https://gravit-launcher-mirror.storage.googleapis.com/"};
+        newConfig.mirrors = new String[]{"https://mirror.gravitlauncher.com/5.4.x/", "https://gravit-launcher-mirror.storage.googleapis.com/"};
         newConfig.launch4j = new LaunchServerConfig.ExeConf();
         newConfig.launch4j.enabled = false;
         newConfig.launch4j.copyright = "© GravitLauncher Team";
@@ -84,7 +85,6 @@ public final class LaunchServerConfig {
         newConfig.netty.performance.schedulerThread = 2;
 
         newConfig.launcher = new LauncherConf();
-        newConfig.launcher.guardType = "no";
         newConfig.launcher.compress = true;
         newConfig.launcher.deleteTempFiles = true;
         newConfig.launcher.stripLineNumbers = true;
@@ -107,9 +107,8 @@ public final class LaunchServerConfig {
         return newConfig;
     }
 
-    public LaunchServerConfig setLaunchServer(LaunchServer server) {
+    public void setLaunchServer(LaunchServer server) {
         this.server = server;
-        return this;
     }
 
     public AuthProviderPair getAuthProviderPair(String name) {
@@ -168,12 +167,9 @@ public final class LaunchServerConfig {
             boolean updateMirror = Boolean.getBoolean("launchserver.config.disableUpdateMirror");
             if (!updateMirror) {
                 for (int i = 0; i < mirrors.length; ++i) {
-                    if ("https://mirror.gravit.pro/5.2.x/".equals(mirrors[i])) {
-                        logger.warn("Replace mirror 'https://mirror.gravit.pro/5.2.x/' to 'https://mirror.gravitlauncher.com/5.3.x/'. If you really need to use original url, use '-Dlaunchserver.config.disableUpdateMirror=true'");
-                        mirrors[i] = "https://mirror.gravitlauncher.com/5.3.x/";
-                    } else if ("https://mirror.gravit.pro/5.3.x/".equals(mirrors[i])) {
-                        logger.warn("Replace mirror 'https://mirror.gravit.pro/5.3.x/' to 'https://mirror.gravitlauncher.com/5.3.x/'. If you really need to use original url, use '-Dlaunchserver.config.disableUpdateMirror=true'");
-                        mirrors[i] = "https://mirror.gravitlauncher.com/5.3.x/";
+                    if (mirrors[i] != null && oldMirrorList.contains(mirrors[i])) {
+                        logger.warn("Replace mirror '{}' to 'https://mirror.gravitlauncher.com/5.4.x/'. If you really need to use original url, use '-Dlaunchserver.config.disableUpdateMirror=true'", mirrors[i]);
+                        mirrors[i] = "https://mirror.gravitlauncher.com/5.4.x/";
                     }
                 }
             }
@@ -188,7 +184,6 @@ public final class LaunchServerConfig {
         if (protectHandler != null) {
             server.registerObject("protectHandler", protectHandler);
             protectHandler.init(server);
-            protectHandler.checkLaunchServerLicense();
         }
         if (components != null) {
             components.forEach((k, v) -> server.registerObject("component.".concat(k), v));
@@ -269,7 +264,6 @@ public final class LaunchServerConfig {
     }
 
     public static class LauncherConf {
-        public String guardType;
         public boolean compress;
         public boolean stripLineNumbers;
         public boolean deleteTempFiles;

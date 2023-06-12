@@ -95,8 +95,6 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
      * Pipeline for building EXE
      */
     public final LauncherBinary launcherEXEBinary;
-    //public static LaunchServer server = null;
-    public final Class<? extends LauncherBinary> launcherEXEBinaryClass;
     // Server config
     public final AuthHookManager authHookManager;
     public final LaunchServerModulesManager modulesManager;
@@ -121,7 +119,6 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
     // Updates and profiles
     private volatile Set<ClientProfile> profilesList;
 
-    @SuppressWarnings("deprecation")
     public LaunchServer(LaunchServerDirectories directories, LaunchServerEnv env, LaunchServerConfig config, LaunchServerRuntimeConfig runtimeConfig, LaunchServerConfigManager launchServerConfigManager, LaunchServerModulesManager modulesManager, KeyAgreementManager keyAgreementManager, CommandHandler commandHandler, CertificateManager certificateManager) throws IOException {
         this.dir = directories.dir;
         this.tmpDir = directories.tmpDir;
@@ -148,9 +145,6 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
         modulesManager.invokeEvent(new NewLaunchServerInstanceEvent(this));
 
         // Print keypair fingerprints
-
-        // Load class bindings.
-        launcherEXEBinaryClass = defaultLauncherEXEBinaryClass;
 
         runtime.verify();
         config.verify();
@@ -219,7 +213,14 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
             });
             logger.debug("Init components successful");
         }
-
+        if(!type.equals(ReloadType.NO_AUTH)) {
+            nettyServerSocketHandler.nettyServer.service.forEachActiveChannels((channel, wsHandler) -> {
+                Client client = wsHandler.getClient();
+                if(client.auth != null) {
+                    client.auth = config.getAuthProviderPair(client.auth_id);
+                }
+            });
+        }
     }
 
     @Override
@@ -236,7 +237,7 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
                     case "full" -> reload(ReloadType.FULL);
                     case "no_auth" -> reload(ReloadType.NO_AUTH);
                     case "no_components" -> reload(ReloadType.NO_COMPONENTS);
-                    default -> reload(ReloadType.FULL);
+                    default -> reload(ReloadType.NO_AUTH);
                 }
             }
         };
@@ -270,12 +271,10 @@ public final class LaunchServer implements Runnable, AutoCloseable, Reconfigurab
     }
 
     private LauncherBinary binary() {
-        if (launcherEXEBinaryClass != null) {
-            try {
-                return (LauncherBinary) MethodHandles.publicLookup().findConstructor(launcherEXEBinaryClass, MethodType.methodType(void.class, LaunchServer.class)).invoke(this);
-            } catch (Throwable e) {
-                logger.error(e);
-            }
+        LaunchServerLauncherExeInit event = new LaunchServerLauncherExeInit(this, null);
+        modulesManager.invokeEvent(event);
+        if(event.binary != null) {
+            return event.binary;
         }
         try {
             Class.forName("net.sf.launch4j.Builder");
