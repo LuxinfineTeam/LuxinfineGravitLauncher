@@ -2,8 +2,12 @@ package pro.gravit.launcher.request.websockets;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.EmptyHttpHeaders;
 import io.netty.handler.codec.http.HttpClientCodec;
@@ -36,7 +40,7 @@ public abstract class ClientJSONPoint {
         t.setDaemon(true);
         return t;
     };
-    private static final EventLoopGroup group = new NioEventLoopGroup(threadFactory);
+    private static final EventLoopGroup group = Epoll.isAvailable() ? new EpollEventLoopGroup(threadFactory) : new NioEventLoopGroup(threadFactory);
     @LauncherInject("launcher.certificatePinning")
     private static boolean isCertificatePinning;
     protected final Bootstrap bootstrap = new Bootstrap();
@@ -78,7 +82,7 @@ public abstract class ClientJSONPoint {
             sslCtx = sslContextBuilder.build();
         } else sslCtx = null;
         bootstrap.group(group)
-                .channel(NioSocketChannel.class)
+                .channel(Epoll.isAvailable() ? EpollSocketChannel.class : NioSocketChannel.class)
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     public void initChannel(SocketChannel ch) {
