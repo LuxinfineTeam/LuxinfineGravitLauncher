@@ -14,25 +14,21 @@ import java.util.UUID;
 
 public class LegacySessionHelper {
     public static String makeAccessJwtTokenFromString(User user, LocalDateTime expirationTime, ECPrivateKey privateKey) {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
-                .setSubject(user.getUsername())
-                .claim("uuid", user.getUUID().toString())
-                .setExpiration(Date.from(expirationTime
+        return Jwts.builder().issuer("LaunchServer").subject(user.getUsername())
+                .claim("uuid", user.getUUID().toString()).expiration(Date.from(expirationTime
                         .toInstant(ZoneOffset.UTC)))
                 .signWith(privateKey)
                 .compact();
     }
 
     public static JwtTokenInfo getJwtInfoFromAccessToken(String token, ECPublicKey publicKey) {
-        var parser = Jwts.parserBuilder()
-                .requireIssuer("LaunchServer")
-                .setClock(() -> new Date(Clock.systemUTC().millis()))
-                .setSigningKey(publicKey)
+        var parser = Jwts.parser()
+                .requireIssuer("LaunchServer").clock(() -> new Date(Clock.systemUTC().millis()))
+                .verifyWith(publicKey)
                 .build();
-        var claims = parser.parseClaimsJws(token);
-        var uuid = UUID.fromString(claims.getBody().get("uuid", String.class));
-        var username = claims.getBody().getSubject();
+        var claims = parser.parseSignedClaims(token);
+        var uuid = UUID.fromString(claims.getPayload().get("uuid", String.class));
+        var username = claims.getPayload().getSubject();
         return new JwtTokenInfo(username, uuid);
     }
 
@@ -41,7 +37,7 @@ public class LegacySessionHelper {
             rawPassword = "";
         }
         return SecurityHelper.toHex(SecurityHelper.digest(SecurityHelper.DigestAlgorithm.SHA256,
-                String.format("%s.%s.%s.%s", secretSalt, username, rawPassword, secretSalt)));
+                "%s.%s.%s.%s".formatted(secretSalt, username, rawPassword, secretSalt)));
     }
 
     public record JwtTokenInfo(String username, UUID uuid) {

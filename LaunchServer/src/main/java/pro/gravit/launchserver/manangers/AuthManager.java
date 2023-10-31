@@ -37,7 +37,7 @@ public class AuthManager {
 
     public AuthManager(LaunchServer server) {
         this.server = server;
-        this.checkServerTokenParser = Jwts.parserBuilder()
+        this.checkServerTokenParser = Jwts.parser()
                 .requireIssuer("LaunchServer")
                 .require("tokenType", "checkServer")
                 .setSigningKey(server.keyAgreementManager.ecdsaPublicKey)
@@ -45,8 +45,7 @@ public class AuthManager {
     }
 
     public String newCheckServerToken(String serverName, String authId) {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
+        return Jwts.builder().issuer("LaunchServer")
                 .claim("serverName", serverName)
                 .claim("authId", authId)
                 .claim("tokenType", "checkServer")
@@ -56,7 +55,7 @@ public class AuthManager {
 
     public CheckServerTokenInfo parseCheckServerToken(String token) {
         try {
-            var jwt = checkServerTokenParser.parseClaimsJws(token).getBody();
+            var jwt = checkServerTokenParser.parseSignedClaims(token).getPayload();
             return new CheckServerTokenInfo(jwt.get("serverName", String.class), jwt.get("authId", String.class));
         } catch (Exception e) {
             return null;
@@ -133,7 +132,7 @@ public class AuthManager {
             internalAuth(context.client, context.authType, context.pair, user.getUsername(), user.getUUID(), user.getPermissions(), result.isUsingOAuth());
             return result;
         } catch (IOException e) {
-            if (e instanceof AuthException) throw (AuthException) e;
+            if (e instanceof AuthException authException) throw authException;
             logger.error(e);
             throw new AuthException("Internal Auth Error");
         }
@@ -272,19 +271,19 @@ public class AuthManager {
     }
 
     private AuthRequest.AuthPasswordInterface tryDecryptPasswordPlain(AuthRequest.AuthPasswordInterface password) throws AuthException {
-        if (password instanceof AuthAESPassword) {
+        if (password instanceof AuthAESPassword authAESPassword) {
             try {
                 return new AuthPlainPassword(IOHelper.decode(SecurityHelper.decrypt(server.runtime.passwordEncryptKey
-                        , ((AuthAESPassword) password).password)));
+                        , authAESPassword.password)));
             } catch (Exception ignored) {
                 throw new AuthException("Password decryption error");
             }
         }
-        if (password instanceof AuthRSAPassword) {
+        if (password instanceof AuthRSAPassword authRSAPassword) {
             try {
                 Cipher cipher = SecurityHelper.newRSADecryptCipher(server.keyAgreementManager.rsaPrivateKey);
                 return new AuthPlainPassword(
-                        IOHelper.decode(cipher.doFinal(((AuthRSAPassword) password).password))
+                        IOHelper.decode(cipher.doFinal(authRSAPassword.password))
                 );
             } catch (Exception ignored) {
                 throw new AuthException("Password decryption error");
@@ -313,7 +312,7 @@ public class AuthManager {
             client.auth = server.config.getAuthProviderPair(info.authId);
             if (client.permissions == null) client.permissions = new ClientPermissions();
             client.permissions.addPerm("launchserver.checkserver");
-            client.permissions.addPerm(String.format("launchserver.profile.%s.show", info.serverName));
+            client.permissions.addPerm("launchserver.profile.%s.show".formatted(info.serverName));
             client.setProperty("launchserver.serverName", info.serverName);
             return true;
         }

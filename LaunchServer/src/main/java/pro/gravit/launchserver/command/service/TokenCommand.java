@@ -18,9 +18,9 @@ public class TokenCommand extends Command {
             @Override
             public void invoke(String... args) throws Exception {
                 verifyArgs(args, 1);
-                var parser = Jwts.parserBuilder().setSigningKey(server.keyAgreementManager.ecdsaPublicKey).build();
-                var claims = parser.parseClaimsJws(args[0]);
-                logger.info("Token: {}", claims.getBody());
+                var parser = Jwts.parser().verifyWith(server.keyAgreementManager.ecdsaPublicKey).build();
+                var claims = parser.parseSignedClaims(args[0]);
+                logger.info("Token: {}", claims.getPayload());
             }
         });
         this.childCommands.put("server", new SubCommand("[profileName] (authId)", "generate new server token") {

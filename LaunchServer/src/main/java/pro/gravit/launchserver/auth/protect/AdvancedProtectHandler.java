@@ -21,6 +21,8 @@ import pro.gravit.launchserver.socket.response.secure.HardwareReportResponse;
 import java.util.Base64;
 import java.util.Date;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 public class AdvancedProtectHandler extends StdProtectHandler implements SecureProtectHandler, HardwareProtectHandler, JoinServerProtectHandler {
     private transient final Logger logger = LogManager.getLogger();
     public boolean enableHardwareFeature;
@@ -101,20 +103,14 @@ public class AdvancedProtectHandler extends StdProtectHandler implements SecureP
     }
 
     public String createHardwareToken(String username, UserHardware hardware) {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
-                .setSubject(username)
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * server.config.netty.security.hardwareTokenExpire))
+        return Jwts.builder().issuer("LaunchServer").subject(username).expiration(new Date(System.currentTimeMillis() + SECONDS.toMillis(server.config.netty.security.hardwareTokenExpire)))
                 .claim("hardware", hardware.getId())
                 .signWith(server.keyAgreementManager.ecdsaPrivateKey)
                 .compact();
     }
 
     public String createPublicKeyToken(String username, byte[] publicKey) {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
-                .setSubject(username)
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * server.config.netty.security.publicKeyTokenExpire))
+        return Jwts.builder().issuer("LaunchServer").subject(username).expiration(new Date(System.currentTimeMillis() + SECONDS.toMillis(server.config.netty.security.publicKeyTokenExpire)))
                 .claim("publicKey", Base64.getEncoder().encodeToString(publicKey))
                 .signWith(server.keyAgreementManager.ecdsaPrivateKey)
                 .compact();
@@ -125,17 +121,17 @@ public class AdvancedProtectHandler extends StdProtectHandler implements SecureP
         private final JwtParser parser;
 
         public HardwareInfoTokenVerifier(LaunchServer server) {
-            this.parser = Jwts.parserBuilder()
+            this.parser = Jwts.parser()
                     .requireIssuer("LaunchServer")
-                    .setSigningKey(server.keyAgreementManager.ecdsaPublicKey)
+                    .verifyWith(server.keyAgreementManager.ecdsaPublicKey)
                     .build();
         }
 
         @Override
         public boolean accept(Client client, AuthProviderPair pair, String extendedToken) {
             try {
-                var parse = parser.parseClaimsJws(extendedToken);
-                String hardwareInfoId = parse.getBody().get("hardware", String.class);
+                var parse = parser.parseSignedClaims(extendedToken);
+                String hardwareInfoId = parse.getPayload().get("hardware", String.class);
                 if (hardwareInfoId == null) return false;
                 if (client.auth == null) return false;
                 var hardwareSupport = client.auth.core.isSupport(AuthSupportHardware.class);
@@ -157,17 +153,17 @@ public class AdvancedProtectHandler extends StdProtectHandler implements SecureP
         private final JwtParser parser;
 
         public PublicKeyTokenVerifier(LaunchServer server) {
-            this.parser = Jwts.parserBuilder()
+            this.parser = Jwts.parser()
                     .requireIssuer("LaunchServer")
-                    .setSigningKey(server.keyAgreementManager.ecdsaPublicKey)
+                    .verifyWith(server.keyAgreementManager.ecdsaPublicKey)
                     .build();
         }
 
         @Override
         public boolean accept(Client client, AuthProviderPair pair, String extendedToken) {
             try {
-                var parse = parser.parseClaimsJws(extendedToken);
-                String publicKey = parse.getBody().get("publicKey", String.class);
+                var parse = parser.parseSignedClaims(extendedToken);
+                String publicKey = parse.getPayload().get("publicKey", String.class);
                 if (publicKey == null) return false;
                 if (client.trustLevel == null) client.trustLevel = new Client.TrustLevel();
                 client.trustLevel.publicKey = Base64.getDecoder().decode(publicKey);
