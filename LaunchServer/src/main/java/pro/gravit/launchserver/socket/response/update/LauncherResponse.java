@@ -68,10 +68,8 @@ public class LauncherResponse extends SimpleResponse {
     }
 
     public String createLauncherExtendedToken() {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
-                .claim("checkSign", true)
-                .setExpiration(Date.from(LocalDateTime.now().plusSeconds(server.config.netty.security.launcherTokenExpire).toInstant(ZoneOffset.UTC)))
+        return Jwts.builder().issuer("LaunchServer")
+                .claim("checkSign", true).expiration(Date.from(LocalDateTime.now().plusSeconds(server.config.netty.security.launcherTokenExpire).toInstant(ZoneOffset.UTC)))
                 .signWith(server.keyAgreementManager.ecdsaPrivateKey, SignatureAlgorithm.ES256)
                 .compact();
     }
@@ -89,8 +87,8 @@ public class LauncherResponse extends SimpleResponse {
         private final Logger logger = LogManager.getLogger();
 
         public LauncherTokenVerifier(LaunchServer server) {
-            parser = Jwts.parserBuilder()
-                    .setSigningKey(server.keyAgreementManager.ecdsaPublicKey)
+            parser = Jwts.parser()
+                    .verifyWith(server.keyAgreementManager.ecdsaPublicKey)
                     .requireIssuer("LaunchServer")
                     .build();
         }
@@ -98,8 +96,8 @@ public class LauncherResponse extends SimpleResponse {
         @Override
         public boolean accept(Client client, AuthProviderPair pair, String extendedToken) {
             try {
-                var jwt = parser.parseClaimsJws(extendedToken);
-                client.checkSign = jwt.getBody().get("checkSign", Boolean.class);
+                var jwt = parser.parseSignedClaims(extendedToken);
+                client.checkSign = jwt.getPayload().get("checkSign", Boolean.class);
                 client.type = AuthResponse.ConnectTypes.CLIENT;
                 return true;
             } catch (Exception e) {

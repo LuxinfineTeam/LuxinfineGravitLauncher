@@ -37,7 +37,7 @@ public class AuthManager {
 
     public AuthManager(LaunchServer server) {
         this.server = server;
-        this.checkServerTokenParser = Jwts.parserBuilder()
+        this.checkServerTokenParser = Jwts.parser()
                 .requireIssuer("LaunchServer")
                 .require("tokenType", "checkServer")
                 .setSigningKey(server.keyAgreementManager.ecdsaPublicKey)
@@ -45,8 +45,7 @@ public class AuthManager {
     }
 
     public String newCheckServerToken(String serverName, String authId) {
-        return Jwts.builder()
-                .setIssuer("LaunchServer")
+        return Jwts.builder().issuer("LaunchServer")
                 .claim("serverName", serverName)
                 .claim("authId", authId)
                 .claim("tokenType", "checkServer")
@@ -56,7 +55,7 @@ public class AuthManager {
 
     public CheckServerTokenInfo parseCheckServerToken(String token) {
         try {
-            var jwt = checkServerTokenParser.parseClaimsJws(token).getBody();
+            var jwt = checkServerTokenParser.parseSignedClaims(token).getPayload();
             return new CheckServerTokenInfo(jwt.get("serverName", String.class), jwt.get("authId", String.class));
         } catch (Exception e) {
             return null;
